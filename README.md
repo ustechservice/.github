@@ -26,13 +26,13 @@ on:
   pull_request:
 jobs:
   call:
-    uses: ustechservice/.github/.github/workflows/verify-author.yml@main
+    uses: ustechservice/.github/.github/workflows/verify-author.yml@v1
 ```
 
 To override the required email per-repo:
 
 ```yaml
-    uses: ustechservice/.github/.github/workflows/verify-author.yml@main
+    uses: ustechservice/.github/.github/workflows/verify-author.yml@v1
     with:
       required_email: ops@ustechservice.com
 ```

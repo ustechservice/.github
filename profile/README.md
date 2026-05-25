@@ -22,7 +22,7 @@ on:
   pull_request:
 jobs:
   call:
-    uses: ustechservice/.github/.github/workflows/verify-author.yml@main
+    uses: ustechservice/.github/.github/workflows/verify-author.yml@v1
 ```
 
 Update the policy in one place (this repo); every consumer picks it up on next push.
