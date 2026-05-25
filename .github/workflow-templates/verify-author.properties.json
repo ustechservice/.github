@@ -1,0 +1,7 @@
+{
+  "name": "Verify commit authors (USTech)",
+  "description": "Server-side hard gate: every commit author email pushed to this repo must be webmaster@ustechservice.com. Calls the reusable workflow in ustechservice/.github so policy updates apply org-wide.",
+  "iconName": "shield",
+  "categories": ["Code quality", "Compliance"],
+  "filePatterns": [".*"]
+}

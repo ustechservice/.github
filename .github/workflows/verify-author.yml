@@ -1,0 +1,79 @@
+name: Verify commit authors (USTech reusable)
+
+# Reusable callable workflow. Invoke from any USTech repo with:
+#
+#   # .github/workflows/verify-author.yml
+#   name: Verify commit authors
+#   on:
+#     push:
+#       branches: ["**"]
+#     pull_request:
+#   jobs:
+#     call:
+#       uses: ustechservice/.github/.github/workflows/verify-author.yml@main
+#
+# Optionally override the required email per-repo:
+#
+#   jobs:
+#     call:
+#       uses: ustechservice/.github/.github/workflows/verify-author.yml@main
+#       with:
+#         required_email: ops@ustechservice.com
+
+on:
+  workflow_call:
+    inputs:
+      required_email:
+        description: Email every commit author must match.
+        type: string
+        required: false
+        default: webmaster@ustechservice.com
+
+jobs:
+  verify-author:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify commit authors
+        env:
+          REQUIRED_EMAIL: ${{ inputs.required_email }}
+        run: |
+          set -e
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
+          else
+            RANGE="${{ github.sha }}"
+          fi
+
+          echo "Inspecting range: $RANGE"
+          echo "Required author email: $REQUIRED_EMAIL"
+          echo ""
+
+          BAD=0
+          while IFS='|' read -r SHA EMAIL SUBJ; do
+            if [ "$EMAIL" != "$REQUIRED_EMAIL" ]; then
+              echo "::error::Commit $SHA has wrong author: $EMAIL ($SUBJ)"
+              BAD=$((BAD + 1))
+            else
+              echo "✓ $SHA  $EMAIL  $SUBJ"
+            fi
+          done < <(git log --pretty=format:'%H|%ae|%s' "$RANGE")
+
+          if [ "$BAD" -gt 0 ]; then
+            echo ""
+            echo "::error::$BAD commit(s) have the wrong author email."
+            echo "::error::Vercel rejects these. Rewrite with:"
+            echo "::error::  git rebase --exec \"git commit --amend --no-edit --reset-author\" <base>"
+            echo "::error::  git push --force-with-lease"
+            exit 1
+          fi
+
+          echo ""
+          echo "All commits verified."

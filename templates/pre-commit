@@ -1,0 +1,36 @@
+#!/bin/sh
+# .githooks/pre-commit — USTech author guard.
+#
+# Aborts the commit if the local git author email is not
+# webmaster@ustechservice.com. Vercel's deploy pipeline rejects commits
+# from any other email and BLOCKS the production deploy queue.
+#
+# Activation (run once after cloning):
+#   git config core.hooksPath .githooks
+
+REQUIRED="webmaster@ustechservice.com"
+ACTUAL=$(git config user.email)
+
+if [ "$ACTUAL" != "$REQUIRED" ]; then
+  cat <<EOF >&2
+
+  ❌  USTECH AUTHOR GUARD — COMMIT BLOCKED
+
+  This repo deploys to Vercel under the USTechService account.
+  Every commit must be authored as:  $REQUIRED
+
+  Your current git author email is:  $ACTUAL
+  (configured at: $(git config --show-origin user.email | head -1))
+
+  Fix it for this repo:
+      git config user.email $REQUIRED
+      git config user.name  "USTech Webmaster"
+
+  Then re-run your commit. Do NOT skip this hook —
+  Vercel will reject the push anyway.
+
+EOF
+  exit 1
+fi
+
+exit 0

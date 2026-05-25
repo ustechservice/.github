@@ -1,0 +1,10 @@
+name: Verify commit authors
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  call:
+    uses: ustechservice/.github/.github/workflows/verify-author.yml@main
