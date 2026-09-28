@@ -41,15 +41,30 @@ jobs:
       - name: Verify commit authors
         env:
           REQUIRED_EMAIL: ${{ inputs.required_email }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -e
+          ZERO="0000000000000000000000000000000000000000"
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
-          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            RANGE="${{ github.event.before }}..${{ github.sha }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            RANGE="$PR_BASE..$PR_HEAD"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "$ZERO" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # Normal push (before is missing after a force-push that dropped it; fall through)
+            RANGE="$BEFORE..$HEAD_SHA"
+          elif [ -n "$DEFAULT_BRANCH" ] && [ "$REF" != "refs/heads/$DEFAULT_BRANCH" ]                && git rev-parse -q --verify "origin/$DEFAULT_BRANCH" >/dev/null; then
+            # First push of a new branch (before is all zeros): only the commits the
+            # branch adds on top of the default branch. Using the bare SHA here walked
+            # the entire history and failed on every pre-guard commit.
+            RANGE="origin/$DEFAULT_BRANCH..$HEAD_SHA"
           else
-            RANGE="${{ github.sha }}"
+            # First push of the default branch itself, or no default branch to compare to.
+            RANGE="$HEAD_SHA"
           fi
 
           echo "Inspecting range: $RANGE"
@@ -64,7 +79,10 @@ jobs:
             else
               echo "✓ $SHA  $EMAIL  $SUBJ"
             fi
-          done < <(git log --pretty=format:'%H|%ae|%s' "$RANGE")
+          # tformat (not format): newline-terminates every line. With format:, the last
+          # line has no newline, `read` drops it, and the oldest commit in the range was
+          # never checked — so a single-commit wrong-author push always passed.
+          done < <(git log --pretty=tformat:'%H|%ae|%s' "$RANGE")
 
           if [ "$BAD" -gt 0 ]; then
             echo ""
